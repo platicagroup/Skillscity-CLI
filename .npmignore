@@ -1,0 +1,5 @@
+src/
+Test/
+*.log
+.env
+tsconfig.json
