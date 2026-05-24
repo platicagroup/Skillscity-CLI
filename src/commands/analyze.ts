@@ -1,6 +1,7 @@
-import { intro, outro, spinner, note, isCancel, cancel } from '@clack/prompts';
+import { spinner, cancel } from '@clack/prompts';
 import pc from 'picocolors';
 import { detectStack, type ProjectStack } from '../utils/detector.js';
+import { printBanner, printBox } from '../utils/ui.js';
 
 // Mapa de frameworks/dependencias conocidas a skills recomendadas de SkillsCity
 interface SkillRecommendation {
@@ -81,7 +82,7 @@ function buildRecommendations(stack: ProjectStack): SkillRecommendation[] {
 }
 
 export async function analyzeCommand() {
-  intro(pc.black(pc.bgCyan(' SKILLSCITY ANALYZER ')));
+  printBanner();
 
   const s = spinner();
   s.start('Escaneando la estructura de tu proyecto...');
@@ -103,27 +104,36 @@ export async function analyzeCommand() {
   const summaryLines = [
     `Lenguajes  : ${stack.languages.length > 0 ? pc.cyan(stack.languages.join(', ')) : pc.dim('No detectados')}`,
     `Frameworks : ${stack.frameworks.length > 0 ? pc.cyan(stack.frameworks.join(', ')) : pc.dim('Ninguno')}`,
-    `Git activo : ${stack.hasGit ? pc.green('Si') : pc.red('No')}`,
+    `Git activo : ${stack.hasGit ? pc.green('Sí') : pc.red('No')}`,
     `Deps. tot. : ${pc.yellow(String(stack.dependencies.length))}`
   ];
-  note(summaryLines.join('\n'), 'Resumen del Proyecto');
+  printBox('Resumen del Proyecto', summaryLines, 'cyan');
 
   // --- Recomendaciones ---
   const recommendations = buildRecommendations(stack);
 
   if (recommendations.length > 0) {
-    const list = recommendations
-      .map((r, i) => `${pc.bold(String(i + 1) + '.')} ${pc.cyan(r.displayName)}\n   ${pc.dim(r.reason)}`)
-      .join('\n\n');
-    note(list, `${recommendations.length} Habilidades Recomendadas para tu Stack`);
+    const listLines: string[] = [];
+    recommendations.forEach((r, i) => {
+      listLines.push(`${pc.bold(pc.yellow(String(i + 1) + '.'))} ${pc.cyan(pc.bold(r.displayName))}`);
+      listLines.push(`   ${pc.dim(r.reason)}`);
+      if (i < recommendations.length - 1) {
+        listLines.push('');
+      }
+    });
+    printBox(`${recommendations.length} Habilidades Recomendadas para tu Stack`, listLines, 'magenta');
   } else {
-    note(
-      'No se encontraron recomendaciones automaticas especificas.\nVisita ' + pc.underline('https://skillscity.dev') + ' para explorar el catalogo.',
-      'Sin Recomendaciones'
+    printBox(
+      'Sin Recomendaciones',
+      [
+        'No se encontraron recomendaciones automáticas específicas.',
+        `Visita ${pc.underline(pc.cyan('https://skillscity.dev'))} para explorar el catálogo.`
+      ],
+      'yellow'
     );
   }
 
-  outro(
-    `Ejecuta ${pc.bold(pc.cyan('pnpm dlx skills add <nombre-skill>'))} para instalar una habilidad.`
-  );
+  console.log(`  ${pc.bold(pc.green('»'))} Ejecuta ${pc.bold(pc.cyan('pnpm dlx skillscity-cli add <nombre-skill>'))} para instalar una habilidad.`);
+  console.log('');
 }
+

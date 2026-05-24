@@ -1,7 +1,8 @@
-import { intro, outro, text, confirm, spinner, note, isCancel, cancel } from '@clack/prompts';
+import { text, confirm, spinner, isCancel, cancel } from '@clack/prompts';
 import path from 'path';
 import pc from 'picocolors';
 import { writeJsonFile, updateSkillsLockfile } from '../utils/filesystem.js';
+import { printBanner, printBox } from '../utils/ui.js';
 
 // ---------------------------------------------------------------------------
 // Tipos de la definición de skill
@@ -101,7 +102,7 @@ function interpolate(template: string, vars: Record<string, string>): string {
 // ---------------------------------------------------------------------------
 
 export async function addCommand(skillName: string) {
-  intro(pc.black(pc.bgCyan(` SKILLSCITY - INSTALAR: ${skillName} `)));
+  printBanner();
 
   const s = spinner();
   s.start(`Buscando la definicion de "${skillName}" en el catalogo...`);
@@ -121,21 +122,20 @@ export async function addCommand(skillName: string) {
   s.stop(pc.green('Definicion obtenida'));
 
   // Mostrar descripcion de la skill
-  note(
-    [
-      `Nombre   : ${pc.cyan(skillDef.name)}`,
-      `Version  : ${pc.yellow(skillDef.version)}`,
-      `Descripcion: ${skillDef.description}`
-    ].join('\n'),
-    'Detalles de la Skill'
-  );
+  printBox('Detalles de la Skill', [
+    `Nombre      : ${pc.cyan(pc.bold(skillDef.name))}`,
+    `Version     : ${pc.yellow(skillDef.version)}`,
+    `Descripcion : ${skillDef.description}`
+  ], 'cyan');
 
   // Preguntar confirmacion antes de proceder
-  const proceed = await confirm({ message: `Deseas configurar e instalar "${skillDef.name}"?` });
+  const proceed = await confirm({ message: `¿Deseas configurar e instalar "${skillDef.name}"?` });
   if (isCancel(proceed) || !proceed) {
     cancel('Instalacion cancelada.');
     process.exit(0);
   }
+
+  console.log('');
 
   // ---------------------------------------------------------------------------
   // Ejecutar preguntas interactivas
@@ -190,16 +190,13 @@ export async function addCommand(skillName: string) {
 
   s.stop(pc.green('Instalacion completada'));
 
-  note(
-    [
-      `Archivo  : ${pc.cyan(outFile)}`,
-      `Lockfile : ${pc.dim('skills.lock.json')} actualizado`
-    ].join('\n'),
-    'Archivos Generados'
-  );
+  printBox('Archivos Generados', [
+    `Archivo  : ${pc.cyan(outFile)}`,
+    `Lockfile : ${pc.dim('skills.lock.json')} actualizado`
+  ], 'green');
 
-  outro(
-    `La skill ${pc.bold(pc.cyan(skillDef.name))} v${skillDef.version} esta lista. ` +
-    `Consulta la documentacion en ${pc.underline('https://skillscity.dev/docs')}`
-  );
+  console.log(`  ${pc.bold(pc.green('»'))} La skill ${pc.bold(pc.cyan(skillDef.name))} v${skillDef.version} está lista.`);
+  console.log(`  ${pc.bold(pc.green('»'))} Consulta la documentacion en ${pc.underline(pc.cyan('https://skillscity.dev/docs'))}`);
+  console.log('');
 }
+
