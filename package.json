@@ -1,6 +1,6 @@
 {
   "name": "skillscity-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI oficial de SkillsCity para escanear proyectos e instalar habilidades de IA.",
   "type": "module",
   "bin": {
@@ -49,4 +49,3 @@
     "typescript": "^5.3.2"
   }
 }
-
