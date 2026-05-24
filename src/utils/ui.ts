@@ -4,12 +4,18 @@ import pc from 'picocolors';
 
 export function printBanner(): void {
   console.log('');
-  console.log(pc.cyan(pc.bold('  ██████╗██╗  ██╗██╗██╗     ██╗     ███████╗ ██████╗██╗████████╗██╗   ██╗')));
-  console.log(pc.cyan(pc.bold(' ██╔════╝██║  ██║██║██║     ██║     ██╔════╝██╔════╝██║╚══██╔══╝╚██╗ ██╔╝')));
-  console.log(pc.cyan(pc.bold(' ╚█████╗ ███████║██║██║     ██║     ███████╗██║     ██║   ██║    ╚████╔╝ ')));
-  console.log(pc.cyan(pc.bold('  ╚═══██╗██╔══██║██║██║     ██║     ╚════██║██║     ██║   ██║     ╚██╔╝  ')));
-  console.log(pc.cyan(pc.bold(' ██████╔╝██║  ██║██║███████╗███████╗███████║╚██████╗██║   ██║      ██║   ')));
-  console.log(pc.cyan(pc.bold(' ╚═════╝ ╚═╝  ╚═╝╚═╝╚══════╝╚══════╝╚══════╝ ╚═════╝╚═╝   ╚═╝      ╚═╝   ')));
+  console.log(pc.black(pc.bold('  ███████╗██╗  ██╗██╗██╗     ██╗     ███████╗')));
+  console.log(pc.black(pc.bold('  ██╔════╝██║ ██╔╝██║██║     ██║     ██╔════╝')));
+  console.log(pc.black(pc.bold('  ███████╗█████╔╝ ██║██║     ██║     ███████╗')));
+  console.log(pc.black(pc.bold('  ╚════██║██╔═██╗ ██║██║     ██║     ╚════██║')));
+  console.log(pc.black(pc.bold('  ███████║██║  ██╗██║███████╗███████╗███████║')));
+  console.log(pc.black(pc.bold('  ╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝╚══════╝')));
+  console.log(pc.black(pc.bold('          ██████╗██╗████████╗██╗   ██╗')));
+  console.log(pc.black(pc.bold('         ██╔════╝██║╚══██╔══╝╚██╗ ██╔╝')));
+  console.log(pc.black(pc.bold('         ██║     ██║   ██║    ╚████╔╝ ')));
+  console.log(pc.black(pc.bold('         ██║     ██║   ██║     ╚██╔╝  ')));
+  console.log(pc.black(pc.bold('         ╚██████╗██║   ██║      ██║   ')));
+  console.log(pc.black(pc.bold('          ╚═════╝╚═╝   ╚═╝      ╚═╝   ')));
   console.log(pc.dim('                       THE AI AGENT SKILLS HUB                       '));
   console.log('');
 }
