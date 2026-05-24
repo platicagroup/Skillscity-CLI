@@ -133,7 +133,41 @@ export async function analyzeCommand() {
     );
   }
 
-  console.log(`  ${pc.bold(pc.green('»'))} Ejecuta ${pc.bold(pc.cyan('pnpm dlx skillscity-cli add <nombre-skill>'))} para instalar una habilidad.`);
-  console.log('');
+  // --- Selección e Instalación Interactiva ---
+  if (recommendations.length > 0) {
+    const { multiselect, isCancel } = await import('@clack/prompts');
+    const { addCommand } = await import('./add.js');
+
+    const selectedSkills = await multiselect({
+      message: '¿Deseas instalar alguna de estas habilidades ahora?',
+      options: recommendations.map(r => ({
+        value: r.skillId,
+        label: r.displayName,
+        hint: r.reason
+      })),
+      required: false
+    });
+
+    if (isCancel(selectedSkills)) {
+      console.log(`  ${pc.bold(pc.yellow('!'))} Operación cancelada.`);
+      console.log('');
+      process.exit(0);
+    }
+
+    const skillsToInstall = selectedSkills as string[];
+    if (skillsToInstall && skillsToInstall.length > 0) {
+      console.log('');
+      for (const skillId of skillsToInstall) {
+        await addCommand(skillId);
+      }
+    } else {
+      console.log(`  ${pc.bold(pc.blue('i'))} No se seleccionó ninguna habilidad para instalar.`);
+      console.log(`  ${pc.bold(pc.green('»'))} Ejecuta ${pc.bold(pc.cyan('pnpm dlx skillscity-cli add <nombre-skill>'))} en el futuro.`);
+      console.log('');
+    }
+  } else {
+    console.log(`  ${pc.bold(pc.green('»'))} Ejecuta ${pc.bold(pc.cyan('pnpm dlx skillscity-cli add <nombre-skill>'))} para instalar manualmente.`);
+    console.log('');
+  }
 }
 
