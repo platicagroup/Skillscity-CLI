@@ -91,23 +91,23 @@ export async function analyzeCommand() {
   try {
     stack = await detectStack(process.cwd());
   } catch (err) {
-    s.stop(pc.red('Error durante el escaneo'));
+    s.stop('Error durante el escaneo');
     cancel(`No se pudo completar el análisis: ${String(err)}`);
     process.exit(1);
   }
 
   // Pausa visual para una experiencia más premium
   await new Promise(resolve => setTimeout(resolve, 800));
-  s.stop(pc.green('Escaneo completado'));
+  s.stop('Escaneo completado');
 
   // --- Resumen del stack ---
   const summaryLines = [
-    `Lenguajes  : ${stack.languages.length > 0 ? pc.cyan(stack.languages.join(', ')) : pc.dim('No detectados')}`,
-    `Frameworks : ${stack.frameworks.length > 0 ? pc.cyan(stack.frameworks.join(', ')) : pc.dim('Ninguno')}`,
-    `Git activo : ${stack.hasGit ? pc.green('Sí') : pc.red('No')}`,
-    `Deps. tot. : ${pc.yellow(String(stack.dependencies.length))}`
+    `Lenguajes  : ${stack.languages.length > 0 ? pc.bold(stack.languages.join(', ')) : pc.dim('No detectados')}`,
+    `Frameworks : ${stack.frameworks.length > 0 ? pc.bold(stack.frameworks.join(', ')) : pc.dim('Ninguno')}`,
+    `Git activo : ${stack.hasGit ? 'Sí' : 'No'}`,
+    `Deps. tot. : ${pc.bold(String(stack.dependencies.length))}`
   ];
-  printBox('Resumen del Proyecto', summaryLines, 'cyan');
+  printBox('Resumen del Proyecto', summaryLines);
 
   // --- Recomendaciones ---
   const recommendations = buildRecommendations(stack);
@@ -115,21 +115,20 @@ export async function analyzeCommand() {
   if (recommendations.length > 0) {
     const listLines: string[] = [];
     recommendations.forEach((r, i) => {
-      listLines.push(`${pc.bold(pc.yellow(String(i + 1) + '.'))} ${pc.cyan(pc.bold(r.displayName))}`);
+      listLines.push(`${pc.bold(String(i + 1) + '.')} ${pc.bold(r.displayName)}`);
       listLines.push(`   ${pc.dim(r.reason)}`);
       if (i < recommendations.length - 1) {
         listLines.push('');
       }
     });
-    printBox(`${recommendations.length} Habilidades Recomendadas para tu Stack`, listLines, 'magenta');
+    printBox(`${recommendations.length} Habilidades Recomendadas para tu Stack`, listLines);
   } else {
     printBox(
       'Sin Recomendaciones',
       [
         'No se encontraron recomendaciones automáticas específicas.',
-        `Visita ${pc.underline(pc.cyan('https://skillscity.dev'))} para explorar el catálogo.`
-      ],
-      'yellow'
+        `Visita ${pc.underline('https://skillscity.dev')} para explorar el catálogo.`
+      ]
     );
   }
 
@@ -149,7 +148,7 @@ export async function analyzeCommand() {
     });
 
     if (isCancel(selectedSkills)) {
-      console.log(`  ${pc.bold(pc.yellow('!'))} Operación cancelada.`);
+      console.log(`  ${pc.bold('!')} Operación cancelada.`);
       console.log('');
       process.exit(0);
     }
@@ -161,12 +160,12 @@ export async function analyzeCommand() {
         await addCommand(skillId);
       }
     } else {
-      console.log(`  ${pc.bold(pc.blue('i'))} No se seleccionó ninguna habilidad para instalar.`);
-      console.log(`  ${pc.bold(pc.green('»'))} Ejecuta ${pc.bold(pc.cyan('pnpm dlx skillscity-cli add <nombre-skill>'))} en el futuro.`);
+      console.log(`  i No se seleccionó ninguna habilidad para instalar.`);
+      console.log(`  » Ejecuta ${pc.bold('pnpm dlx skillscity-cli add <nombre-skill>')} en el futuro.`);
       console.log('');
     }
   } else {
-    console.log(`  ${pc.bold(pc.green('»'))} Ejecuta ${pc.bold(pc.cyan('pnpm dlx skillscity-cli add <nombre-skill>'))} para instalar manualmente.`);
+    console.log(`  » Ejecuta ${pc.bold('pnpm dlx skillscity-cli add <nombre-skill>')} para instalar manualmente.`);
     console.log('');
   }
 }

@@ -119,19 +119,19 @@ export async function addCommand(skillName: string) {
     promptTemplate: `Eres un agente de la skill "${skillName}". Configurado en {{outputPath}}.`
   };
 
-  s.stop(pc.green('Definicion obtenida'));
+  s.stop('Definición obtenida');
 
   // Mostrar descripcion de la skill
   printBox('Detalles de la Skill', [
-    `Nombre      : ${pc.cyan(pc.bold(skillDef.name))}`,
-    `Version     : ${pc.yellow(skillDef.version)}`,
+    `Nombre      : ${pc.bold(skillDef.name)}`,
+    `Version     : ${skillDef.version}`,
     `Descripcion : ${skillDef.description}`
-  ], 'cyan');
+  ]);
 
   // Preguntar confirmacion antes de proceder
   const proceed = await confirm({ message: `¿Deseas configurar e instalar "${skillDef.name}"?` });
   if (isCancel(proceed) || !proceed) {
-    cancel('Instalacion cancelada.');
+    cancel('Instalación cancelada.');
     process.exit(0);
   }
 
@@ -151,14 +151,14 @@ export async function addCommand(skillName: string) {
           defaultValue: q.default
         });
         if (isCancel(response)) {
-          cancel('Instalacion cancelada.');
+          cancel('Instalación cancelada.');
           process.exit(0);
         }
         answers[q.name] = response as string;
       } else if (q.type === 'confirm') {
         const response = await confirm({ message: q.message });
         if (isCancel(response)) {
-          cancel('Instalacion cancelada.');
+          cancel('Instalación cancelada.');
           process.exit(0);
         }
         answers[q.name] = String(response);
@@ -169,7 +169,7 @@ export async function addCommand(skillName: string) {
   // ---------------------------------------------------------------------------
   // Inyectar, generar archivo y actualizar lockfile
   // ---------------------------------------------------------------------------
-  s.start('Inyectando configuracion y generando archivos...');
+  s.start('Inyectando configuración y generando archivos...');
   await new Promise(resolve => setTimeout(resolve, 800));
 
   const finalPrompt = interpolate(skillDef.promptTemplate, answers);
@@ -188,15 +188,15 @@ export async function addCommand(skillName: string) {
   // Actualizar skills.lock.json en la raiz del proyecto
   await updateSkillsLockfile(process.cwd(), skillDef.name, skillDef.version);
 
-  s.stop(pc.green('Instalacion completada'));
+  s.stop('Instalación completada');
 
   printBox('Archivos Generados', [
-    `Archivo  : ${pc.cyan(outFile)}`,
+    `Archivo  : ${outFile}`,
     `Lockfile : ${pc.dim('skills.lock.json')} actualizado`
-  ], 'green');
+  ]);
 
-  console.log(`  ${pc.bold(pc.green('»'))} La skill ${pc.bold(pc.cyan(skillDef.name))} v${skillDef.version} está lista.`);
-  console.log(`  ${pc.bold(pc.green('»'))} Consulta la documentacion en ${pc.underline(pc.cyan('https://skillscity.dev/docs'))}`);
+  console.log(`  » La skill ${pc.bold(skillDef.name)} v${skillDef.version} está lista.`);
+  console.log(`  » Consulta la documentación en ${pc.underline('https://skillscity.dev/docs')}`);
   console.log('');
 }
 
