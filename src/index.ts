@@ -12,7 +12,7 @@ const program = new Command();
 program
   .name('skills')
   .description(pc.bold('SkillsCity CLI') + ' - Escanea tu proyecto e instala habilidades de IA')
-  .version('0.1.6'); // aligned with package version
+  .version('0.1.9'); // aligned with package version
 
 program
   .command('analyze')
@@ -41,6 +41,14 @@ program
     await packCommand(targetDir, options);
   });
 
+program
+  .command('menu')
+  .alias('interactive')
+  .description('Abre la interfaz interactiva para seleccionar y ejecutar comandos')
+  .action(async () => {
+    await runInteractiveMenu();
+  });
+
 async function runInteractiveMenu() {
   intro(pc.bold(pc.cyan('SkillsCity CLI')));
 
@@ -50,6 +58,7 @@ async function runInteractiveMenu() {
       { value: 'analyze', label: 'Analizar proyecto', hint: 'Recomienda habilidades basadas en tu stack' },
       { value: 'add', label: 'Instalar habilidad', hint: 'Instala una habilidad de IA en el proyecto' },
       { value: 'pack', label: 'Empaquetar código', hint: 'Consolida y comprime el proyecto para asistentes de IA' },
+      { value: 'help', label: 'Ver ayuda / comandos', hint: 'Muestra la lista de comandos disponibles' },
       { value: 'exit', label: 'Salir' }
     ]
   });
@@ -99,6 +108,9 @@ async function runInteractiveMenu() {
     };
 
     await packCommand(process.cwd(), options as any);
+  } else if (choice === 'help') {
+    program.outputHelp();
+    process.exit(0);
   }
 }
 

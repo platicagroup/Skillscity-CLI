@@ -6,10 +6,11 @@
 
 ## Índice
 1. [Instalación](#instalación)
-2. [Comando: `analyze`](#comando-analyze)
-3. [Comando: `add`](#comando-add)
-4. [Comando: `pack`](#comando-pack)
-5. [Ejemplos de Uso](#ejemplos-de-uso)
+2. [Comando: `menu` / `interactive`](#comando-menu--interactive)
+3. [Comando: `analyze`](#comando-analyze)
+4. [Comando: `add`](#comando-add)
+5. [Comando: `pack`](#comando-pack)
+6. [Ejemplos de Uso](#ejemplos-de-uso)
 
 ---
 
@@ -28,6 +29,24 @@ O enlazar el binario globalmente en tu sistema local:
 npm link
 skills <comando>
 ```
+
+---
+
+## Comando: `menu` / `interactive`
+
+Abre una interfaz interactiva en la terminal que permite seleccionar y ejecutar cualquiera de los otros comandos disponibles (`analyze`, `add`, `pack` o `help`).
+
+### Sintaxis
+```bash
+skills menu
+```
+o
+```bash
+skills interactive
+```
+
+### Descripción
+Inicia una guía paso a paso basada en menús de selección en la terminal en lugar de requerir que escribas opciones manuales o flags de consola.
 
 ---
 
