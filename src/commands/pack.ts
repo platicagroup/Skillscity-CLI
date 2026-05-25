@@ -8,6 +8,7 @@ import { Worker, isMainThread, parentPort, workerData } from 'worker_threads';
 import { spinner, cancel } from '@clack/prompts';
 import { printBanner, printBox, printSuccess, printError } from '../utils/ui.js';
 import { stripComments, countTokens } from '../utils/cleaner.js';
+import { compressCode } from '../utils/codeCompress.js';
 
 // ---------------------------------------------------------------------------
 // Hilo Secundario (Worker Thread)
@@ -15,10 +16,11 @@ import { stripComments, countTokens } from '../utils/cleaner.js';
 
 if (!isMainThread) {
   const runWorker = async () => {
-    const { filePaths, absoluteTargetDir, compress } = workerData as {
+    const { filePaths, absoluteTargetDir, compress, codeCompress } = workerData as {
       filePaths: string[];
       absoluteTargetDir: string;
       compress: boolean;
+      codeCompress: boolean;
     };
 
     const results = [];
@@ -26,7 +28,9 @@ if (!isMainThread) {
       const absoluteFilePath = path.join(absoluteTargetDir, filePath);
       let content = await fs.readFile(absoluteFilePath, 'utf-8');
 
-      if (compress) {
+      if (codeCompress) {
+        content = compressCode(content, filePath);
+      } else if (compress) {
         content = stripComments(content, filePath);
       }
 
@@ -64,6 +68,7 @@ interface PackOptions {
   style: 'xml' | 'markdown' | 'json';
   exclude?: string[];
   compress: boolean;
+  codeCompress: boolean;
 }
 
 interface TreeNode {
@@ -225,7 +230,8 @@ export async function packCommand(targetDir: string, options: PackOptions) {
           workerData: {
             filePaths: chunk,
             absoluteTargetDir,
-            compress: options.compress
+            compress: options.compress,
+            codeCompress: options.codeCompress
           }
         });
         
@@ -308,7 +314,7 @@ ${directoryTree}\`\`\`
     printBox('Resumen del Empaquetado', [
       `Archivos procesados  : ${pc.bold(String(processedFiles.length))}`,
       `Estilo de formato    : ${pc.bold(options.style.toUpperCase())}`,
-      `Compresión activa    : ${options.compress ? pc.green('Sí') : pc.yellow('No')}`,
+      `Compresión activa    : ${options.codeCompress ? pc.green('Estructural') : options.compress ? pc.green('Sí (comentarios)') : pc.yellow('No')}`,
       `Tokens del output    : ${pc.bold(pc.green(totalTokensCount.toLocaleString()))}`,
       `Archivo generado     : ${pc.cyan(options.output)}`
     ]);

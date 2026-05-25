@@ -33,6 +33,7 @@ program
   .option('-s, --style <style>', 'Formato de salida (xml, markdown, json)', 'xml')
   .option('-e, --exclude <patterns...>', 'Patrones adicionales a excluir')
   .option('-c, --compress', 'Elimina comentarios y líneas vacías para ahorrar tokens', false)
+  .option('-C, --code-compress', 'Compresión estructural: preserva firmas de funciones/clases, elimina implementaciones (usa ⋮----)', false)
   .action(async (directory: string | undefined, options: any) => {
     const targetDir = directory || process.cwd();
     await packCommand(targetDir, options);
