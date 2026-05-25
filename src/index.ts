@@ -6,6 +6,7 @@ import { addCommand } from './commands/add.js';
 import { packCommand } from './commands/pack.js';
 
 import { select, text, intro, outro, isCancel } from '@clack/prompts';
+import { printBanner } from './utils/ui.js';
 
 const program = new Command();
 
@@ -50,6 +51,7 @@ program
   });
 
 async function runInteractiveMenu() {
+  printBanner();
   intro(pc.bold(pc.cyan('SkillsCity CLI')));
 
   const choice = await select({
