@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import pc from 'picocolors';
 import { analyzeCommand } from './commands/analyze.js';
 import { addCommand } from './commands/add.js';
+import { packCommand } from './commands/pack.js';
 
 const program = new Command();
 
@@ -23,6 +24,18 @@ program
   .description('Instala una habilidad de SkillsCity en el proyecto actual')
   .action(async (skillName: string) => {
     await addCommand(skillName);
+  });
+
+program
+  .command('pack [directory]')
+  .description('Empaqueta el código del proyecto en un único archivo para asistentes de IA')
+  .option('-o, --output <file>', 'Ruta del archivo de salida', 'skills-output.xml')
+  .option('-s, --style <style>', 'Formato de salida (xml, markdown, json)', 'xml')
+  .option('-e, --exclude <patterns...>', 'Patrones adicionales a excluir')
+  .option('-c, --compress', 'Elimina comentarios y líneas vacías para ahorrar tokens', false)
+  .action(async (directory: string | undefined, options: any) => {
+    const targetDir = directory || process.cwd();
+    await packCommand(targetDir, options);
   });
 
 program.parse(process.argv);
