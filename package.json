@@ -1,6 +1,6 @@
 {
   "name": "skillscity-cli",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "CLI oficial de SkillsCity para escanear proyectos e instalar habilidades de IA.",
   "type": "module",
   "bin": {
@@ -43,7 +43,7 @@
     "picocolors": "^1.0.0",
     "semver": "^7.5.4",
     "tree-sitter-wasms": "^0.1.13",
-    "web-tree-sitter": "^0.26.9"
+    "web-tree-sitter": "^0.25.10"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",

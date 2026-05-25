@@ -1,51 +1,73 @@
 export const queryTypescript = `
-; Function declarations
+(import_statement
+  (import_clause (identifier) @name.reference.module)) @definition.import
+
+(import_statement
+  (import_clause
+    (named_imports
+      (import_specifier
+        name: (identifier) @name.reference.module))) @definition.import)
+
+(comment) @comment
+
+(function_signature
+  name: (identifier) @name.definition.function) @definition.function
+
+(method_signature
+  name: (property_identifier) @name.definition.method) @definition.method
+
+(abstract_method_signature
+  name: (property_identifier) @name.definition.method) @definition.method
+
+(abstract_class_declaration
+  name: (type_identifier) @name.definition.class) @definition.class
+
+(module
+  name: (identifier) @name.definition.module) @definition.module
+
+(interface_declaration
+  name: (type_identifier) @name.definition.interface) @definition.interface
+
+(type_annotation
+  (type_identifier) @name.reference.type) @reference.type
+
+(new_expression
+  constructor: (identifier) @name.reference.class) @reference.class
+
 (function_declaration
-  name: (identifier) @definition.function
-  parameters: (formal_parameters) @definition.function
+  name: (identifier) @name.definition.function) @definition.function
+
+(method_definition
+  name: (property_identifier) @name.definition.method) @definition.method
+
+(class_declaration
+  name: (type_identifier) @name.definition.class) @definition.class
+
+(interface_declaration
+  name: (type_identifier) @name.definition.class) @definition.class
+
+(type_alias_declaration
+  name: (type_identifier) @name.definition.type) @definition.type
+
+(enum_declaration
+  name: (identifier) @name.definition.enum) @definition.enum
+
+(lexical_declaration
+    (variable_declarator
+      name: (identifier) @name.definition.function
+      value: (arrow_function)
+    )
+  ) @definition.function
+
+(variable_declaration
+    (variable_declarator
+      name: (identifier) @name.definition.function
+      value: (arrow_function)
+    )
 ) @definition.function
 
-; Function expressions assigned to variables
-(variable_declarator
-  name: (identifier) @definition.function
-  value: (function_expression) @definition.function
-)
-
-; Arrow functions
-(arrow_function) @definition.function
-
-; Class declarations
-(class_declaration
-  name: (identifier) @definition.class
-) @definition.class
-
-; Method definitions inside classes
-(method_definition
-  name: (property_identifier) @definition.method
-  parameters: (formal_parameters) @definition.method
-) @definition.method
-
-; Interface declarations
-(interface_declaration
-  name: (type_identifier) @definition.interface
-) @definition.interface
-
-; Type aliases
-(type_alias_declaration
-  name: (type_identifier) @definition.type
-) @definition.type
-
-; Enum declarations
-(enum_declaration
-  name: (identifier) @definition.enum
-) @definition.enum
-
-; Import statements
-(import_statement) @definition.import
-
-; Export statements
-(export_statement) @definition.import
-
-; Comments
-(comment) @comment
+(assignment_expression
+    left: [(identifier) @name.definition.function]
+    right: (arrow_function)
+) @definition.function
 `;

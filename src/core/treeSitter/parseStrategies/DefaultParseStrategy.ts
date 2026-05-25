@@ -1,41 +1,37 @@
 import type { Node } from 'web-tree-sitter';
 import type { ParseContext } from './BaseParseStrategy.js';
-import { BaseParseStrategy, type ParseResult } from './BaseParseStrategy.js';
-
-const CAPTURE_TYPES = {
-  'comment': 'comment',
-} as const;
-
-type CaptureType = (typeof CAPTURE_TYPES)[keyof typeof CAPTURE_TYPES];
+import { BaseParseStrategy } from './BaseParseStrategy.js';
 
 export class DefaultParseStrategy extends BaseParseStrategy {
   parseCapture(
     capture: { node: Node; name: string },
     lines: string[],
     processedChunks: Set<string>,
-    context: ParseContext,
+    _context: ParseContext,
   ): string | null {
-    const types = this.getCaptureTypes(capture.name, CAPTURE_TYPES);
-
-    // 1. Eliminar comments
-    if (types.has('comment')) {
-      return '';
-    }
-
-    // Para otros nodos, preservar completamente por defecto
-    const content = this.extractNodeContent(capture.node, lines);
-    if (!content) return null;
-
-    if (this.checkAndAddToProcessed(content, processedChunks)) {
-      return null;
-    }
-    return content;
-  }
-
-  private extractNodeContent(node: Node, lines: string[]): string | null {
+    const { node, name } = capture;
     const startRow = node.startPosition.row;
     const endRow = node.endPosition.row;
-    const content = this.extractLines(lines, startRow, endRow);
-    return content ? content.join('\n') : null;
+
+    const selectedLines = this.extractLines(lines, startRow, endRow);
+    if (!selectedLines) {
+      return null;
+    }
+
+    const isNameCapture = name.includes('name');
+    const isCommentCapture = name.includes('comment');
+    const isImportCapture = name.includes('import') || name.includes('require');
+    const shouldSelect = isNameCapture || isCommentCapture || isImportCapture;
+
+    if (!shouldSelect) {
+      return null;
+    }
+
+    const chunk = selectedLines.join('\n');
+    if (!this.checkAndAddToProcessed(chunk, processedChunks)) {
+      return null;
+    }
+
+    return chunk;
   }
 }

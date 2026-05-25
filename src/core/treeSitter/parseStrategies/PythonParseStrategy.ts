@@ -2,16 +2,13 @@ import type { Node } from 'web-tree-sitter';
 import type { ParseContext } from './BaseParseStrategy.js';
 import { BaseParseStrategy, type ParseResult } from './BaseParseStrategy.js';
 
-const CAPTURE_TYPES = {
-  'comment': 'comment',
-  'definition.function': 'definition.function',
-  'definition.class': 'definition.class',
-  'definition.docstring': 'docstring',
-  'definition.type_alias': 'definition.type_alias',
-  'definition.decorator': 'definition.decorator',
-} as const;
-
-type CaptureType = (typeof CAPTURE_TYPES)[keyof typeof CAPTURE_TYPES];
+enum CaptureType {
+  Comment = 'comment',
+  Class = 'definition.class',
+  Function = 'definition.function',
+  Docstring = 'docstring',
+  TypeAlias = 'definition.type_alias',
+}
 
 export class PythonParseStrategy extends BaseParseStrategy {
   parseCapture(
@@ -20,23 +17,39 @@ export class PythonParseStrategy extends BaseParseStrategy {
     processedChunks: Set<string>,
     _context: ParseContext,
   ): string | null {
-    const types = this.getCaptureTypes(capture.name, CAPTURE_TYPES);
+    const { node, name } = capture;
+    const startRow = node.startPosition.row;
+    const endRow = node.endPosition.row;
 
-    if (types.has('comment')) return '';
-    if (types.has('docstring')) return '';
-
-    if (types.has('definition.class')) {
-      return this.parseClassDefinition(lines, capture.node.startPosition.row, processedChunks);
+    if (!this.validateLineExists(lines, startRow)) {
+      return null;
     }
 
-    if (types.has('definition.function')) {
-      return this.parseFunctionDefinition(lines, capture.node.startPosition.row, processedChunks);
+    const captureTypes = this.getCaptureTypes(name, CaptureType);
+
+    // Class definition
+    if (captureTypes.has(CaptureType.Class)) {
+      return this.parseClassDefinition(lines, startRow, processedChunks).content;
     }
 
-    if (types.has('definition.type_alias')) {
-      const endRow = capture.node.endPosition.row;
-      const content = this.extractLines(lines, capture.node.startPosition.row, endRow);
-      return content ? content.join('\n') : null;
+    // Function definition
+    if (captureTypes.has(CaptureType.Function)) {
+      return this.parseFunctionDefinition(lines, startRow, processedChunks).content;
+    }
+
+    // Docstring
+    if (captureTypes.has(CaptureType.Docstring)) {
+      return this.parseDocstringOrComment(lines, startRow, endRow, processedChunks).content;
+    }
+
+    // Comment
+    if (captureTypes.has(CaptureType.Comment)) {
+      return this.parseDocstringOrComment(lines, startRow, endRow, processedChunks).content;
+    }
+
+    // Type alias
+    if (captureTypes.has(CaptureType.TypeAlias)) {
+      return this.parseTypeAlias(lines, startRow, processedChunks).content;
     }
 
     return null;
@@ -44,52 +57,84 @@ export class PythonParseStrategy extends BaseParseStrategy {
 
   private getDecorators(lines: string[], startRow: number): string[] {
     const decorators: string[] = [];
-    let row = startRow - 1;
-    while (row >= 0 && lines[row]?.trimStart().startsWith('@')) {
-      decorators.unshift(lines[row]);
-      row--;
+    let currentRow = startRow - 1;
+
+    while (currentRow >= 0) {
+      const line = lines[currentRow].trim();
+      if (line.startsWith('@')) {
+        decorators.unshift(line); // Add to beginning to maintain order
+      } else {
+        break;
+      }
+      currentRow--;
     }
+
     return decorators;
   }
 
-  private getFunctionSignature(lines: string[], startRow: number): string | null {
-    const sigEnd = this.findColonLine(lines, startRow);
-    return sigEnd >= startRow ? lines.slice(startRow, sigEnd + 1).join('\n') : null;
-  }
-
   private getClassInheritance(lines: string[], startRow: number): string | null {
-    const sigEnd = this.findColonLine(lines, startRow);
-    return sigEnd >= startRow ? lines.slice(startRow, sigEnd + 1).join('\n') : null;
+    const line = lines[startRow];
+    const match = line.match(/class\s+\w+\s*\((.*?)\):/);
+    return match ? line.replace(/:\s*$/, '') : line.replace(/:\s*$/, '');
   }
 
-  private findColonLine(lines: string[], startRow: number): number {
-    for (let i = startRow; i < lines.length; i++) {
-      if (lines[i].includes(':')) return i;
-      // Handle multi-line parenthesized signatures
-      if (lines[i].includes('(') && lines[i].includes(')') && lines[i].includes(':')) return i;
+  private getFunctionSignature(lines: string[], startRow: number): string | null {
+    const line = lines[startRow];
+    const match = line.match(/def\s+(\w+)\s*\((.*?)\)(\s*->\s*[^:]+)?:/);
+    if (!match) return null;
+    return line.replace(/:\s*$/, '');
+  }
+
+  private parseClassDefinition(lines: string[], startRow: number, processedChunks: Set<string>): ParseResult {
+    const decorators = this.getDecorators(lines, startRow);
+    const classDefinition = this.getClassInheritance(lines, startRow);
+    const fullDefinition = [...decorators, classDefinition].join('\n');
+
+    if (!this.checkAndAddToProcessed(fullDefinition, processedChunks)) {
+      return this.createNullResult();
     }
-    return startRow;
+
+    return this.createResult(fullDefinition);
   }
 
-  private parseClassDefinition(
-    lines: string[],
-    startRow: number,
-    processedChunks: Set<string>,
-  ): string | null {
+  private parseFunctionDefinition(lines: string[], startRow: number, processedChunks: Set<string>): ParseResult {
     const decorators = this.getDecorators(lines, startRow);
-    const header = this.getClassInheritance(lines, startRow);
-    if (!header) return null;
-    return [...decorators, header, '    ⋮----'].join('\n');
+    const signature = this.getFunctionSignature(lines, startRow);
+
+    if (!signature) {
+      return this.createNullResult();
+    }
+
+    const fullDefinition = [...decorators, signature].join('\n');
+    if (!this.checkAndAddToProcessed(fullDefinition, processedChunks)) {
+      return this.createNullResult();
+    }
+
+    return this.createResult(fullDefinition);
   }
 
-  private parseFunctionDefinition(
+  private parseDocstringOrComment(
     lines: string[],
     startRow: number,
+    endRow: number,
     processedChunks: Set<string>,
-  ): string | null {
-    const decorators = this.getDecorators(lines, startRow);
-    const sig = this.getFunctionSignature(lines, startRow);
-    if (!sig) return null;
-    return [...decorators, sig, '    ⋮----'].join('\n');
+  ): ParseResult {
+    const content = lines.slice(startRow, endRow + 1).join('\n');
+
+    if (!this.checkAndAddToProcessed(content, processedChunks)) {
+      return this.createNullResult();
+    }
+
+    return this.createResult(content);
+  }
+
+  private parseTypeAlias(lines: string[], startRow: number, processedChunks: Set<string>): ParseResult {
+    const typeAlias = lines[startRow].trim();
+
+    if (!this.checkAndAddToProcessed(typeAlias, processedChunks)) {
+      return this.createNullResult();
+    }
+
+    return this.createResult(typeAlias);
   }
 }

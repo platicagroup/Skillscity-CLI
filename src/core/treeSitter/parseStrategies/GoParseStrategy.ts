@@ -2,156 +2,193 @@ import type { Node } from 'web-tree-sitter';
 import type { ParseContext } from './BaseParseStrategy.js';
 import { BaseParseStrategy, type ParseResult } from './BaseParseStrategy.js';
 
-const CAPTURE_TYPES = {
-  'comment': 'comment',
-  'definition.function': 'definition.function',
-  'definition.type': 'definition.type',
-  'definition.import': 'definition.import',
-} as const;
-
-type CaptureType = (typeof CAPTURE_TYPES)[keyof typeof CAPTURE_TYPES];
+enum CaptureType {
+  Comment = 'comment',
+  Type = 'definition.type',
+  Interface = 'definition.interface',
+  Struct = 'definition.struct',
+  Package = 'definition.package',
+  Import = 'definition.import',
+  Function = 'definition.function',
+  Method = 'definition.method',
+  Module = 'definition.module',
+  Variable = 'definition.variable',
+  Constant = 'definition.constant',
+}
 
 export class GoParseStrategy extends BaseParseStrategy {
   parseCapture(
     capture: { node: Node; name: string },
     lines: string[],
     processedChunks: Set<string>,
-    context: ParseContext,
+    _context: ParseContext,
   ): string | null {
-    const types = this.getCaptureTypes(capture.name, CAPTURE_TYPES);
+    const { node, name } = capture;
+    const startRow = node.startPosition.row;
+    const endRow = node.endPosition.row;
 
-    // 1. Eliminar comments
-    if (types.has('comment')) {
-      return '';
-    }
-
-    // 2. Preservar imports completos
-    if (types.has('definition.import')) {
-      const content = this.extractNodeContent(capture.node, lines);
-      if (content) return content;
+    if (!this.validateLineExists(lines, startRow)) {
       return null;
     }
 
-    // 3. Funciones: preservar firma, eliminar cuerpo
-    if (types.has('definition.function')) {
-      return this.parseFunctionDefinition(capture.node, lines, processedChunks);
+    const captureTypes = this.getCaptureTypes(name, CaptureType);
+
+    // Comments
+    if (captureTypes.has(CaptureType.Comment)) {
+      return this.parseBlockDeclaration(lines, startRow, endRow, processedChunks).content;
     }
 
-    // 4. Tipos: preservar completamente
-    if (types.has('definition.type')) {
-      return this.parseTypeOrImport(capture.node, lines, processedChunks);
+    // Package declarations
+    if (captureTypes.has(CaptureType.Package) || captureTypes.has(CaptureType.Module)) {
+      return this.parseSimpleDeclaration(lines, startRow, processedChunks).content;
+    }
+
+    // Import declarations
+    if (captureTypes.has(CaptureType.Import)) {
+      return lines[startRow].includes('(')
+        ? this.parseBlockDeclaration(lines, startRow, endRow, processedChunks).content
+        : this.parseSimpleDeclaration(lines, startRow, processedChunks).content;
+    }
+
+    // Variable declarations
+    if (captureTypes.has(CaptureType.Variable)) {
+      return this.parseBlockDeclaration(lines, startRow, endRow, processedChunks).content;
+    }
+
+    // Constant declarations
+    if (captureTypes.has(CaptureType.Constant)) {
+      return this.parseBlockDeclaration(lines, startRow, endRow, processedChunks).content;
+    }
+
+    // Type definitions
+    if (
+      captureTypes.has(CaptureType.Type) ||
+      captureTypes.has(CaptureType.Interface) ||
+      captureTypes.has(CaptureType.Struct)
+    ) {
+      return this.parseTypeDefinition(lines, startRow, endRow, processedChunks).content;
+    }
+
+    // Function declarations
+    if (captureTypes.has(CaptureType.Function)) {
+      return this.parseFunctionOrMethod(lines, startRow, endRow, processedChunks, false).content;
+    }
+
+    // Method declarations
+    if (captureTypes.has(CaptureType.Method)) {
+      return this.parseFunctionOrMethod(lines, startRow, endRow, processedChunks, true).content;
     }
 
     return null;
   }
 
-  private parseFunctionDefinition(
-    node: Node,
-    lines: string[],
-    processedChunks: Set<string>,
-  ): string | null {
-    const startRow = node.startPosition.row;
-    const endRow = node.endPosition.row;
-
-    // Extraer comentario que precede a la función
-    const commentLines: string[] = [];
-    let commentRow = startRow - 1;
-    while (commentRow >= 0) {
-      const trimmed = lines[commentRow]?.trim();
-      if (trimmed?.startsWith('//')) {
-        commentLines.unshift(lines[commentRow]);
-        commentRow--;
-      } else if (trimmed === '') {
-        commentRow--;
-      } else {
-        break;
-      }
+  private getFunctionName(lines: string[], startRow: number): string | null {
+    const line = lines[startRow];
+    // "func funcName(" pattern detection
+    const match = line.match(/func\s+([A-Za-z0-9_]+)\s*\(/);
+    if (match?.[1]) {
+      return match[1];
     }
-
-    // Extraer decoradores (labels) que preceden a la función
-    const decoratorLines: string[] = [];
-    let decoratorRow = commentLines.length > 0
-      ? startRow - commentLines.length - 1
-      : startRow - 1;
-    while (decoratorRow >= 0 && lines[decoratorRow]?.trim().endsWith(':')) {
-      decoratorLines.unshift(lines[decoratorRow]);
-      decoratorRow--;
-    }
-
-    // Encontrar el final de la firma
-    const sigEnd = this.findSignatureEnd(lines, startRow, endRow);
-
-    // Extraer la firma
-    const sigLines = lines.slice(startRow, sigEnd + 1);
-    const cleanSig = this.cleanFunctionSignature(sigLines);
-
-    // Construir resultado: decoradores + comentario + firma + ⋮----
-    const resultLines = [
-      ...decoratorLines,
-      ...commentLines,
-      ...cleanSig.split('\n'),
-      `  ⋮----`,
-    ];
-
-    const result = resultLines.join('\n');
-    return result;
+    return null;
   }
 
-  private parseTypeOrImport(
-    node: Node,
-    lines: string[],
-    processedChunks: Set<string>,
-  ): string | null {
-    const startRow = node.startPosition.row;
-    const endRow = node.endPosition.row;
-    const content = this.extractLines(lines, startRow, endRow);
-    if (!content) return null;
-
-    const result = content.join('\n');
-    if (this.checkAndAddToProcessed(result, processedChunks)) {
-      return null;
+  // Helper to get method name including receiver type
+  private getMethodWithReceiver(lines: string[], startRow: number): string | null {
+    const line = lines[startRow];
+    // "func (r ReceiverType) methodName(" pattern detection
+    const match = line.match(/func\s+\(([^)]+)\)\s+([A-Za-z0-9_]+)\s*\(/);
+    if (match?.[2]) {
+      return match[2];
     }
-    return result;
+    return null;
   }
 
-  private findSignatureEnd(lines: string[], startRow: number, endRow: number): number {
-    let parenDepth = 0;
-    let inParen = false;
-    let inString: string | null = null;
-
+  private findClosingToken(
+    lines: string[],
+    startRow: number,
+    endRow: number,
+    _openToken: string,
+    closeToken: string,
+  ): number {
     for (let i = startRow; i <= endRow; i++) {
-      const line = lines[i];
-      for (let j = 0; j < line.length; j++) {
-        const ch = line[j];
-        const prev = j > 0 ? line[j - 1] : '';
-
-        if (inString) {
-          if (ch === inString && prev !== '\\') inString = null;
-          continue;
-        }
-        if (ch === '"' || ch === "'" || ch === '`') { inString = ch; continue; }
-        if (ch === '(') { parenDepth++; inParen = true; }
-        else if (ch === ')') {
-          parenDepth--;
-          if (parenDepth === 0 && inParen) return i;
-        }
+      if (lines[i].includes(closeToken)) {
+        return i;
       }
-      if (inParen && parenDepth === 0) return i;
     }
-    return endRow;
+    return startRow;
   }
 
-  private cleanFunctionSignature(sigLines: string[]): string {
-    return sigLines.map((l, i) => {
-      if (i === 0) return l.trimStart();
-      return l;
-    }).join('\n');
+  private parseSimpleDeclaration(lines: string[], startRow: number, processedChunks: Set<string>): ParseResult {
+    const declaration = lines[startRow].trim();
+    if (!this.checkAndAddToProcessed(declaration, processedChunks)) {
+      return this.createNullResult();
+    }
+    return this.createResult(declaration);
   }
 
-  private extractNodeContent(node: Node, lines: string[]): string | null {
-    const startRow = node.startPosition.row;
-    const endRow = node.endPosition.row;
-    const content = this.extractLines(lines, startRow, endRow);
-    return content ? content.join('\n') : null;
+  private parseBlockDeclaration(
+    lines: string[],
+    startRow: number,
+    endRow: number,
+    processedChunks: Set<string>,
+  ): ParseResult {
+    const blockEndRow = lines[startRow].includes('(')
+      ? this.findClosingToken(lines, startRow, endRow, '(', ')')
+      : endRow;
+
+    const declaration = lines.slice(startRow, blockEndRow + 1).join('\n');
+    if (!this.checkAndAddToProcessed(declaration, processedChunks)) {
+      return this.createNullResult();
+    }
+    return this.createResult(declaration);
+  }
+
+  private parseFunctionOrMethod(
+    lines: string[],
+    startRow: number,
+    endRow: number,
+    processedChunks: Set<string>,
+    isMethod: boolean,
+  ): ParseResult {
+    const nameKey = isMethod ? 'method' : 'func';
+    const getName = isMethod ? this.getMethodWithReceiver : this.getFunctionName;
+    const name = getName.call(this, lines, startRow);
+
+    if (name && processedChunks.has(`${nameKey}:${name}`)) {
+      return this.createNullResult();
+    }
+
+    const signatureEndRow = this.findClosingToken(lines, startRow, endRow, '{', '{');
+    const signature = lines
+      .slice(startRow, signatureEndRow + 1)
+      .join('\n')
+      .trim();
+    const cleanSignature = signature.split('{')[0].trim();
+
+    if (!this.checkAndAddToProcessed(cleanSignature, processedChunks)) {
+      return this.createNullResult();
+    }
+
+    if (name) {
+      processedChunks.add(`${nameKey}:${name}`);
+    }
+    return this.createResult(cleanSignature);
+  }
+
+  private parseTypeDefinition(
+    lines: string[],
+    startRow: number,
+    endRow: number,
+    processedChunks: Set<string>,
+  ): ParseResult {
+    const signatureEndRow = lines[startRow].includes('{')
+      ? this.findClosingToken(lines, startRow, endRow, '{', '}')
+      : endRow;
+
+    const definition = lines.slice(startRow, signatureEndRow + 1).join('\n');
+    if (!this.checkAndAddToProcessed(definition, processedChunks)) {
+      return this.createNullResult();
+    }
+    return this.createResult(definition);
   }
 }

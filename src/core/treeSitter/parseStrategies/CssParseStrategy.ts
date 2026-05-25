@@ -1,43 +1,51 @@
 import type { Node } from 'web-tree-sitter';
 import type { ParseContext } from './BaseParseStrategy.js';
-import { BaseParseStrategy, type ParseResult } from './BaseParseStrategy.js';
-
-const CAPTURE_TYPES = {
-  'comment': 'comment',
-  'definition.rule': 'definition.rule',
-  'definition.at_rule': 'definition.at_rule',
-} as const;
-
-type CaptureType = (typeof CAPTURE_TYPES)[keyof typeof CAPTURE_TYPES];
+import { BaseParseStrategy } from './BaseParseStrategy.js';
 
 export class CssParseStrategy extends BaseParseStrategy {
   parseCapture(
     capture: { node: Node; name: string },
     lines: string[],
     processedChunks: Set<string>,
-    context: ParseContext,
+    _context: ParseContext,
   ): string | null {
-    const types = this.getCaptureTypes(capture.name, CAPTURE_TYPES);
+    const { node, name } = capture;
+    const startRow = node.startPosition.row;
+    const endRow = node.endPosition.row;
 
-    // 1. Eliminar comments
-    if (types.has('comment')) {
-      return '';
-    }
-
-    // 2. Preservar reglas CSS completas
-    if (types.has('definition.rule') || types.has('definition.at_rule')) {
-      const content = this.extractNodeContent(capture.node, lines);
-      if (content) return content;
+    if (!this.validateLineExists(lines, startRow)) {
       return null;
     }
 
-    return null;
-  }
+    // Process CSS-specific capture names
+    const isCommentCapture = name.includes('comment');
+    const isSelectorCapture = name.includes('selector') || name.includes('definition.selector');
+    const isAtRuleCapture = name.includes('at_rule') || name.includes('definition.at_rule');
 
-  private extractNodeContent(node: Node, lines: string[]): string | null {
-    const startRow = node.startPosition.row;
-    const endRow = node.endPosition.row;
-    const content = this.extractLines(lines, startRow, endRow);
-    return content ? content.join('\n') : null;
+    const shouldSelect = isCommentCapture || isSelectorCapture || isAtRuleCapture;
+
+    if (!shouldSelect) {
+      return null;
+    }
+
+    // Extract all lines for comments, only the first line for others
+    let selectedLines: string[];
+    if (isCommentCapture) {
+      selectedLines = lines.slice(startRow, endRow + 1);
+    } else {
+      // For selectors and at-rules, extract only the first line
+      selectedLines = [lines[startRow]];
+    }
+
+    if (selectedLines.length < 1) {
+      return null;
+    }
+
+    const chunk = selectedLines.join('\n');
+    if (!this.checkAndAddToProcessed(chunk, processedChunks)) {
+      return null;
+    }
+
+    return chunk;
   }
 }

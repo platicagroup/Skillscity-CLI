@@ -8,7 +8,7 @@ import { Worker, isMainThread, parentPort, workerData } from 'worker_threads';
 import { spinner, cancel } from '@clack/prompts';
 import { printBanner, printBox, printSuccess, printError } from '../utils/ui.js';
 import { stripComments, countTokens } from '../utils/cleaner.js';
-import { compressCode } from '../utils/codeCompress.js';
+import { parseFile, cleanupLanguageParser } from '../core/treeSitter/parseFile.js';
 
 // ---------------------------------------------------------------------------
 // Hilo Secundario (Worker Thread)
@@ -29,7 +29,14 @@ if (!isMainThread) {
       let content = await fs.readFile(absoluteFilePath, 'utf-8');
 
       if (codeCompress) {
-        content = compressCode(content, filePath);
+        try {
+          const compressed = await parseFile(content, filePath);
+          if (compressed !== undefined) {
+            content = compressed;
+          }
+        } catch (err) {
+          console.error(`Error comprimiendo ${filePath}:`, err);
+        }
       } else if (compress) {
         content = stripComments(content, filePath);
       }
@@ -43,6 +50,7 @@ if (!isMainThread) {
       });
     }
 
+    await cleanupLanguageParser();
     parentPort?.postMessage(results);
   };
 

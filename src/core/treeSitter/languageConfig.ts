@@ -149,7 +149,7 @@ function buildLookupMaps() {
       }
     }
   }
-  return { extensionMap, nameMap };
+  return { extensionMap: extensionMap!, nameMap: nameMap! };
 }
 
 export function getLanguageConfigByExtension(extension: string): LanguageConfig | undefined {
