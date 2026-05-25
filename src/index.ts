@@ -13,7 +13,7 @@ const program = new Command();
 program
   .name('skills')
   .description(pc.bold('SkillsCity CLI') + ' - Escanea tu proyecto e instala habilidades de IA')
-  .version('0.1.9'); // aligned with package version
+  .version('0.1.10'); // aligned with package version
 
 program
   .command('analyze')
