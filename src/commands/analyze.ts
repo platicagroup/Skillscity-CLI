@@ -1,7 +1,10 @@
-import { spinner, cancel } from '@clack/prompts';
+import { spinner, cancel, select, text, isCancel } from '@clack/prompts';
 import pc from 'picocolors';
-import { detectStack, type ProjectStack } from '../utils/detector.js';
+import { detectStack, type ProjectStack, detectStackFromPackedFile } from '../utils/detector.js';
 import { printBanner, printBox } from '../utils/ui.js';
+import fg from 'fast-glob';
+import fs from 'fs-extra';
+import path from 'path';
 
 // Mapa de frameworks/dependencias conocidas a skills recomendadas de SkillsCity
 interface SkillRecommendation {
@@ -84,21 +87,102 @@ function buildRecommendations(stack: ProjectStack): SkillRecommendation[] {
 export async function analyzeCommand() {
   printBanner();
 
+  // Buscar archivos de empaquetado existentes en la raíz del proyecto
+  let candidates: string[] = [];
+  try {
+    candidates = await fg(['skills-output.*', '*output.*', 'repomix.output.txt'], {
+      cwd: process.cwd(),
+      onlyFiles: true
+    });
+  } catch (_e) {}
+
+  const choices = [];
+
+  // Agregar candidatos existentes
+  for (const c of candidates) {
+    choices.push({
+      value: c,
+      label: `Utilizar archivo existente: ${c}`,
+      hint: 'Analiza el stack basado en este archivo de empaquetado'
+    });
+  }
+
+  // Agregar opción para crear uno nuevo
+  choices.push({
+    value: 'CREATE_NEW',
+    label: 'Crear un nuevo empaquetado del repositorio',
+    hint: 'Genera un nuevo empaquetado usando Tree-Sitter'
+  });
+
+  // Agregar opción para especificar ruta manual
+  choices.push({
+    value: 'CUSTOM_PATH',
+    label: 'Introducir la ruta de otro archivo...',
+    hint: 'Especifica una ruta personalizada en tu sistema'
+  });
+
+  const action = await select({
+    message: 'Para realizar el análisis se requiere obligatoriamente un archivo de empaquetado de código:',
+    options: choices
+  });
+
+  if (isCancel(action)) {
+    console.log(`  ${pc.bold('!')} Operación cancelada.`);
+    console.log('');
+    process.exit(0);
+  }
+
+  let selectedPath = '';
+
+  if (action === 'CREATE_NEW') {
+    const { packCommand } = await import('./pack.js');
+    // Generar nuevo empaquetado estructural por defecto
+    await packCommand(process.cwd(), {
+      output: 'skills-output.xml',
+      style: 'xml',
+      compress: false,
+      codeCompress: true
+    });
+    selectedPath = path.resolve('skills-output.xml');
+  } else if (action === 'CUSTOM_PATH') {
+    const customPath = await text({
+      message: 'Introduce la ruta del archivo de empaquetado (XML, JSON o Markdown):',
+      placeholder: './skills-output.xml',
+      validate(val) {
+        if (!val.trim()) return 'La ruta no puede estar vacía';
+      }
+    });
+    if (isCancel(customPath)) {
+      console.log(`  ${pc.bold('!')} Operación cancelada.`);
+      console.log('');
+      process.exit(0);
+    }
+    selectedPath = path.resolve(customPath as string);
+  } else {
+    selectedPath = path.resolve(action as string);
+  }
+
+  if (!(await fs.pathExists(selectedPath))) {
+    cancel(`El archivo de empaquetado no existe: ${selectedPath}`);
+    process.exit(1);
+  }
+
   const s = spinner();
-  s.start('Escaneando la estructura de tu proyecto...');
+  s.start(`Analizando stack desde el empaquetado: ${path.basename(selectedPath)}...`);
 
   let stack: ProjectStack;
   try {
-    stack = await detectStack(process.cwd());
+    const hasGit = await fs.pathExists(path.join(process.cwd(), '.git'));
+    stack = await detectStackFromPackedFile(selectedPath, hasGit);
   } catch (err) {
-    s.stop('Error durante el escaneo');
-    cancel(`No se pudo completar el análisis: ${String(err)}`);
+    s.stop('Error durante el análisis');
+    cancel(`No se pudo completar el análisis del empaquetado: ${String(err)}`);
     process.exit(1);
   }
 
   // Pausa visual para una experiencia más premium
   await new Promise(resolve => setTimeout(resolve, 800));
-  s.stop('Escaneo completado');
+  s.stop('Análisis completado');
 
   // --- Resumen del stack ---
   const summaryLines = [
@@ -107,7 +191,7 @@ export async function analyzeCommand() {
     `Git activo : ${stack.hasGit ? 'Sí' : 'No'}`,
     `Deps. tot. : ${pc.bold(String(stack.dependencies.length))}`
   ];
-  printBox('Resumen del Proyecto', summaryLines);
+  printBox('Resumen del Proyecto (desde empaquetado)', summaryLines);
 
   // --- Recomendaciones ---
   const recommendations = buildRecommendations(stack);
