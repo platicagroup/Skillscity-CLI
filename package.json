@@ -1,10 +1,11 @@
 {
   "name": "skillscity-cli",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "CLI oficial de SkillsCity para escanear proyectos e instalar habilidades de IA.",
   "type": "module",
   "bin": {
-    "skills": "./dist/index.js"
+    "skills": "./dist/index.js",
+    "skillscity": "./dist/index.js"
   },
   "files": [
     "dist"

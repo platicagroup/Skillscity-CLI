@@ -5,12 +5,14 @@ import { analyzeCommand } from './commands/analyze.js';
 import { addCommand } from './commands/add.js';
 import { packCommand } from './commands/pack.js';
 
+import { select, text, intro, outro, isCancel } from '@clack/prompts';
+
 const program = new Command();
 
 program
   .name('skills')
   .description(pc.bold('SkillsCity CLI') + ' - Escanea tu proyecto e instala habilidades de IA')
-  .version('0.1.0');
+  .version('0.1.6'); // aligned with package version
 
 program
   .command('analyze')
@@ -39,4 +41,72 @@ program
     await packCommand(targetDir, options);
   });
 
-program.parse(process.argv);
+async function runInteractiveMenu() {
+  intro(pc.bold(pc.cyan('SkillsCity CLI')));
+
+  const choice = await select({
+    message: 'Selecciona una acción para ejecutar:',
+    options: [
+      { value: 'analyze', label: 'Analizar proyecto', hint: 'Recomienda habilidades basadas en tu stack' },
+      { value: 'add', label: 'Instalar habilidad', hint: 'Instala una habilidad de IA en el proyecto' },
+      { value: 'pack', label: 'Empaquetar código', hint: 'Consolida y comprime el proyecto para asistentes de IA' },
+      { value: 'exit', label: 'Salir' }
+    ]
+  });
+
+  if (isCancel(choice) || choice === 'exit') {
+    outro('¡Hasta luego!');
+    process.exit(0);
+  }
+
+  if (choice === 'analyze') {
+    await analyzeCommand();
+  } else if (choice === 'add') {
+    const skillName = await text({
+      message: 'Introduce el nombre de la habilidad a instalar:',
+      placeholder: 'github-assistant',
+      validate(value) {
+        if (!value.trim()) return 'El nombre de la habilidad no puede estar vacío';
+      }
+    });
+
+    if (isCancel(skillName)) {
+      outro('Operación cancelada');
+      process.exit(0);
+    }
+
+    await addCommand(skillName);
+  } else if (choice === 'pack') {
+    const compressChoice = await select({
+      message: 'Selecciona el tipo de compresión:',
+      options: [
+        { value: 'none', label: 'Sin compresión', hint: 'Consolida archivos tal como están' },
+        { value: 'compress', label: 'Compresión simple', hint: 'Elimina comentarios y líneas vacías' },
+        { value: 'code-compress', label: 'Compresión estructural (Recomendado)', hint: 'Preserva firmas usando Tree-Sitter' }
+      ]
+    });
+
+    if (isCancel(compressChoice)) {
+      outro('Operación cancelada');
+      process.exit(0);
+    }
+
+    const options = {
+      output: 'skills-output.xml',
+      style: 'xml',
+      compress: compressChoice === 'compress',
+      codeCompress: compressChoice === 'code-compress'
+    };
+
+    await packCommand(process.cwd(), options as any);
+  }
+}
+
+if (process.argv.length <= 2) {
+  runInteractiveMenu().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else {
+  program.parse(process.argv);
+}
